@@ -1,0 +1,16 @@
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import * as schema from "./schema";
+
+let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
+
+export function getDb() {
+  if (!_db) {
+    const client = postgres(process.env.DATABASE_URL!);
+    _db = drizzle(client, { schema });
+  }
+  return _db;
+}
+
+// Re-export for convenience — but use getDb() in route handlers
+export { schema };
