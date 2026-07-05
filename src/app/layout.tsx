@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -18,6 +18,18 @@ export const metadata: Metadata = {
     template: "%s | EShop",
   },
   description: "Handcrafted clothing made with care in Lithuania.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // Lets fixed/sticky bars extend under the iOS notch/home-indicator area
+  // so we can pad them precisely with the pt-safe/pb-safe utilities.
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "oklch(1 0 0)" },
+    { media: "(prefers-color-scheme: dark)", color: "oklch(0.145 0 0)" },
+  ],
 };
 
 export default function RootLayout({
