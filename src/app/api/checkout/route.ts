@@ -89,7 +89,7 @@ export async function POST(request: Request) {
 
   const paymentIntent = await getStripe().paymentIntents.create({
     amount: totalCents,
-    currency: "usd",
+    currency: "eur",
     automatic_payment_methods: { enabled: true },
     metadata: { orderId: order.id },
   });

@@ -83,7 +83,7 @@ export function HeaderBar({
               side="left"
               className="gap-0 border-none p-0 data-[side=left]:w-full data-[side=left]:sm:max-w-none"
             >
-              <SheetHeader className="flex-row items-center justify-between border-b border-border pt-safe">
+              <SheetHeader className="flex-row items-center justify-between border-b border-border pt-[calc(1rem+env(safe-area-inset-top))]">
                 <SheetTitle className="kicker">Menu</SheetTitle>
               </SheetHeader>
               <nav className="flex flex-col px-4">

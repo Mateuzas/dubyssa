@@ -49,7 +49,7 @@ export function CartTrigger({ className }: { className?: string }) {
       </SheetTrigger>
 
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
-        <SheetHeader className="border-b border-border pt-safe">
+        <SheetHeader className="border-b border-border pt-[calc(1rem+env(safe-area-inset-top))]">
           <SheetTitle className="kicker">Bag ({displayTotalItems})</SheetTitle>
         </SheetHeader>
 
@@ -74,7 +74,7 @@ export function CartTrigger({ className }: { className?: string }) {
           <>
             <ul className="flex-1 overflow-y-auto px-4">
               {displayItems.map((item, i) => (
-                <li key={`${item.productId}-${item.size ?? ""}`}>
+                <li key={item.productId}>
                   {i > 0 && <Separator />}
                   <div className="flex gap-4 py-4">
                     <div className="relative aspect-3/4 w-20 shrink-0 overflow-hidden bg-muted">
@@ -93,18 +93,13 @@ export function CartTrigger({ className }: { className?: string }) {
                         <p className="text-sm">{item.name}</p>
                         <button
                           type="button"
-                          onClick={() => removeItem(item.productId, item.size)}
+                          onClick={() => removeItem(item.productId)}
                           aria-label={`Remove ${item.name}`}
                           className="flex size-6 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
                         >
                           <X className="size-4" />
                         </button>
                       </div>
-                      {item.size && (
-                        <p className="kicker text-muted-foreground">
-                          Size {item.size}
-                        </p>
-                      )}
                       <p className="text-sm text-muted-foreground">
                         {formatPrice(item.priceCents)}
                       </p>
@@ -112,11 +107,7 @@ export function CartTrigger({ className }: { className?: string }) {
                         <button
                           type="button"
                           onClick={() =>
-                            updateQuantity(
-                              item.productId,
-                              item.quantity - 1,
-                              item.size
-                            )
+                            updateQuantity(item.productId, item.quantity - 1)
                           }
                           aria-label="Decrease quantity"
                           className="flex size-7 items-center justify-center border border-border"
@@ -129,11 +120,7 @@ export function CartTrigger({ className }: { className?: string }) {
                         <button
                           type="button"
                           onClick={() =>
-                            updateQuantity(
-                              item.productId,
-                              item.quantity + 1,
-                              item.size
-                            )
+                            updateQuantity(item.productId, item.quantity + 1)
                           }
                           aria-label="Increase quantity"
                           className="flex size-7 items-center justify-center border border-border"
@@ -147,7 +134,7 @@ export function CartTrigger({ className }: { className?: string }) {
               ))}
             </ul>
 
-            <SheetFooter className="gap-3 border-t border-border pb-safe">
+            <SheetFooter className="gap-3 border-t border-border pb-[calc(1rem+env(safe-area-inset-bottom))]">
               <div className="flex items-center justify-between">
                 <span className="kicker text-muted-foreground">
                   Subtotal

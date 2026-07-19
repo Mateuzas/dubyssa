@@ -20,8 +20,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "EShop — Handcrafted Clothing",
-    template: "%s | EShop",
+    default: "Dubyssa — Handcrafted Clothing",
+    template: "%s | Dubyssa",
   },
   description: "Handcrafted clothing made with care in Lithuania.",
 };
@@ -48,7 +48,11 @@ export default function RootLayout({
       lang="en"
       className={`${archivoNarrow.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      {/* suppressHydrationWarning: some browser extensions (e.g. ColorZilla)
+          inject attributes like `cz-shortcut-listen` onto <body> before
+          React hydrates, which would otherwise trip a hydration mismatch
+          here even though nothing is actually wrong. */}
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         {children}
         <Toaster />
       </body>

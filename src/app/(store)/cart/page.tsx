@@ -40,7 +40,7 @@ export default function CartPage() {
         <div className="mt-10 grid gap-12 lg:grid-cols-3 lg:gap-16">
           <ul className="lg:col-span-2">
             {displayItems.map((item, i) => (
-              <li key={`${item.productId}-${item.size ?? ""}`}>
+              <li key={item.productId}>
                 {i > 0 && <Separator />}
                 <div className="flex gap-6 py-6">
                   <div className="relative aspect-3/4 w-28 shrink-0 overflow-hidden bg-muted sm:w-36">
@@ -59,18 +59,13 @@ export default function CartPage() {
                       <p className="text-sm sm:text-base">{item.name}</p>
                       <button
                         type="button"
-                        onClick={() => removeItem(item.productId, item.size)}
+                        onClick={() => removeItem(item.productId)}
                         aria-label={`Remove ${item.name}`}
                         className="flex size-6 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
                       >
                         <X className="size-4" />
                       </button>
                     </div>
-                    {item.size && (
-                      <p className="kicker text-muted-foreground">
-                        Size {item.size}
-                      </p>
-                    )}
                     <p className="text-sm text-muted-foreground">
                       {formatPrice(item.priceCents)}
                     </p>
@@ -78,11 +73,7 @@ export default function CartPage() {
                       <button
                         type="button"
                         onClick={() =>
-                          updateQuantity(
-                            item.productId,
-                            item.quantity - 1,
-                            item.size
-                          )
+                          updateQuantity(item.productId, item.quantity - 1)
                         }
                         aria-label="Decrease quantity"
                         className="flex size-8 items-center justify-center border border-border"
@@ -95,11 +86,7 @@ export default function CartPage() {
                       <button
                         type="button"
                         onClick={() =>
-                          updateQuantity(
-                            item.productId,
-                            item.quantity + 1,
-                            item.size
-                          )
+                          updateQuantity(item.productId, item.quantity + 1)
                         }
                         aria-label="Increase quantity"
                         className="flex size-8 items-center justify-center border border-border"

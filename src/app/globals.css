@@ -192,4 +192,14 @@
   .font-optima {
     font-family: var(--font-optima);
   }
+
+  /* Hides the scrollbar on an internally-scrollable element (e.g. the
+     product gallery) while keeping it scrollable via wheel/touch/drag. */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }

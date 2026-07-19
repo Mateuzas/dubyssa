@@ -1,6 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      // Product photo uploads go through a server action as multipart
+      // FormData; Next's default 1MB limit rejects most real photos
+      // (a typical phone photo is several MB) before the handler even
+      // runs, which is why uploads were silently failing.
+      bodySizeLimit: "8mb",
+    },
+  },
   images: {
     remotePatterns: [
       {
