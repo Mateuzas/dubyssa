@@ -12,6 +12,14 @@ type ActionResult = { error: string } | { success: true };
 
 const PRODUCT_IMAGES_BUCKET = "product-images";
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_EXTENSIONS = new Set([
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "avif",
+  "gif",
+]);
 
 export async function uploadProductImage(
   formData: FormData
@@ -29,7 +37,10 @@ export async function uploadProductImage(
     return { error: "Image must be smaller than 5MB." };
   }
 
-  const ext = file.name.split(".").pop() || "jpg";
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
+  if (!ALLOWED_EXTENSIONS.has(ext)) {
+    return { error: "Only JPG, PNG, WebP, AVIF or GIF images are allowed." };
+  }
   const path = `${crypto.randomUUID()}.${ext}`;
 
   const supabase = createAdminClient();
