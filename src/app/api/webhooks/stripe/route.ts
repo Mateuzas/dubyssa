@@ -4,7 +4,7 @@ import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { getDb } from "@/lib/db";
 import { orders } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -33,34 +33,34 @@ export async function POST(request: Request) {
   }
 
   switch (event.type) {
-    case "checkout.session.completed": {
-      const session = event.data.object as Stripe.Checkout.Session;
-      if (session.payment_status === "paid" && session.metadata?.orderId) {
-        await getDb()
-          .update(orders)
-          .set({
-            status: "paid",
-            stripePaymentId: session.payment_intent as string,
-            updatedAt: new Date(),
-          })
-          .where(eq(orders.id, session.metadata.orderId));
-      }
-      break;
-    }
-
     // Fired by the /checkout PaymentElement flow, which creates a
     // PaymentIntent directly rather than a Checkout Session.
     case "payment_intent.succeeded": {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      if (paymentIntent.metadata?.orderId) {
-        await getDb()
-          .update(orders)
-          .set({
-            status: "paid",
-            stripePaymentId: paymentIntent.id,
-            updatedAt: new Date(),
-          })
-          .where(eq(orders.id, paymentIntent.metadata.orderId));
+      const orderId = paymentIntent.metadata?.orderId;
+      if (orderId) {
+        const db = getDb();
+        const [order] = await db
+          .select()
+          .from(orders)
+          .where(eq(orders.id, orderId));
+
+        if (order && paymentIntent.amount === order.totalCents) {
+          await db
+            .update(orders)
+            .set({
+              status: "paid",
+              stripePaymentId: paymentIntent.id,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(eq(orders.id, orderId), eq(orders.status, "pending"))
+            );
+        } else if (order) {
+          console.error(
+            `Webhook amount mismatch for order ${orderId}: paymentIntent.amount=${paymentIntent.amount}, order.totalCents=${order.totalCents}`
+          );
+        }
       }
       break;
     }
@@ -74,7 +74,12 @@ export async function POST(request: Request) {
             status: "cancelled",
             updatedAt: new Date(),
           })
-          .where(eq(orders.id, paymentIntent.metadata.orderId));
+          .where(
+            and(
+              eq(orders.id, paymentIntent.metadata.orderId),
+              eq(orders.status, "pending")
+            )
+          );
       }
       break;
     }

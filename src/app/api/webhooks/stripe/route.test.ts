@@ -1,12 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockConstructEvent, mockUpdateWhere, mockUpdateSet, headerState } =
-  vi.hoisted(() => ({
-    mockConstructEvent: vi.fn(),
-    mockUpdateWhere: vi.fn(),
-    mockUpdateSet: vi.fn(),
-    headerState: { signature: null as string | null },
-  }));
+const {
+  mockConstructEvent,
+  mockUpdateWhere,
+  mockUpdateSet,
+  mockSelectResult,
+  headerState,
+} = vi.hoisted(() => ({
+  mockConstructEvent: vi.fn(),
+  mockUpdateWhere: vi.fn(),
+  mockUpdateSet: vi.fn(),
+  mockSelectResult: { current: [] as { id: string; totalCents: number; status: string }[] },
+  headerState: { signature: null as string | null },
+}));
 
 vi.mock("next/headers", () => ({
   headers: async () => ({
@@ -23,6 +29,11 @@ vi.mock("@/lib/stripe", () => ({
 
 vi.mock("@/lib/db", () => ({
   getDb: () => ({
+    select: () => ({
+      from: () => ({
+        where: async () => mockSelectResult.current,
+      }),
+    }),
     update: () => ({
       set: (vals: unknown) => {
         mockUpdateSet(vals);
@@ -45,6 +56,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   headerState.signature = "valid-signature";
   mockUpdateWhere.mockResolvedValue(undefined);
+  mockSelectResult.current = [];
 });
 
 describe("POST /api/webhooks/stripe", () => {
@@ -65,47 +77,14 @@ describe("POST /api/webhooks/stripe", () => {
     expect(body.error).toMatch(/invalid signature/i);
   });
 
-  it("marks the order paid on checkout.session.completed", async () => {
-    mockConstructEvent.mockReturnValue({
-      type: "checkout.session.completed",
-      data: {
-        object: {
-          payment_status: "paid",
-          payment_intent: "pi_123",
-          metadata: { orderId: "order-1" },
-        },
-      },
-    });
-
-    const res = await POST(makeRequest());
-
-    expect(res.status).toBe(200);
-    expect(mockUpdateSet).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "paid", stripePaymentId: "pi_123" })
-    );
-  });
-
-  it("does not update the order if the checkout session isn't paid", async () => {
-    mockConstructEvent.mockReturnValue({
-      type: "checkout.session.completed",
-      data: {
-        object: {
-          payment_status: "unpaid",
-          metadata: { orderId: "order-1" },
-        },
-      },
-    });
-
-    await POST(makeRequest());
-
-    expect(mockUpdateSet).not.toHaveBeenCalled();
-  });
-
-  it("marks the order paid on payment_intent.succeeded", async () => {
+  it("marks the order paid on payment_intent.succeeded when the amount matches", async () => {
+    mockSelectResult.current = [
+      { id: "order-2", totalCents: 4500, status: "pending" },
+    ];
     mockConstructEvent.mockReturnValue({
       type: "payment_intent.succeeded",
       data: {
-        object: { id: "pi_456", metadata: { orderId: "order-2" } },
+        object: { id: "pi_456", amount: 4500, metadata: { orderId: "order-2" } },
       },
     });
 
@@ -114,6 +93,36 @@ describe("POST /api/webhooks/stripe", () => {
     expect(mockUpdateSet).toHaveBeenCalledWith(
       expect.objectContaining({ status: "paid", stripePaymentId: "pi_456" })
     );
+  });
+
+  it("does not mark the order paid when the charged amount doesn't match the order total", async () => {
+    mockSelectResult.current = [
+      { id: "order-2", totalCents: 4500, status: "pending" },
+    ];
+    mockConstructEvent.mockReturnValue({
+      type: "payment_intent.succeeded",
+      data: {
+        object: { id: "pi_456", amount: 100, metadata: { orderId: "order-2" } },
+      },
+    });
+
+    await POST(makeRequest());
+
+    expect(mockUpdateSet).not.toHaveBeenCalled();
+  });
+
+  it("does not mark anything paid when the order doesn't exist", async () => {
+    mockSelectResult.current = [];
+    mockConstructEvent.mockReturnValue({
+      type: "payment_intent.succeeded",
+      data: {
+        object: { id: "pi_456", amount: 4500, metadata: { orderId: "order-missing" } },
+      },
+    });
+
+    await POST(makeRequest());
+
+    expect(mockUpdateSet).not.toHaveBeenCalled();
   });
 
   it("marks the order cancelled on payment_intent.payment_failed", async () => {
