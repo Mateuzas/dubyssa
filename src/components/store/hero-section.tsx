@@ -83,6 +83,7 @@ export function HeroSection() {
         sizes="100vw"
         className="hidden object-cover sm:block"
       />
+
       <div className="absolute inset-x-0 bottom-0 flex justify-center px-6 pb-[12vh]">
         <Link href="/products" className={buttonVariants({ size: "cta" })}>
           Shop the Collection
