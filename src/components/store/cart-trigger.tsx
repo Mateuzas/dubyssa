@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Minus, Plus, ShoppingBag, X } from "lucide-react";
+import { Minus, Plus, X } from "lucide-react";
 
 import { useCartHydrated, useCartStore } from "@/lib/store/cart";
 import { cn, formatPrice } from "@/lib/utils";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
@@ -18,7 +18,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
-export function CartTrigger() {
+export function CartTrigger({ className }: { className?: string }) {
   const mounted = useCartHydrated();
 
   const items = useCartStore((s) => s.items);
@@ -35,24 +35,21 @@ export function CartTrigger() {
     <Sheet>
       <SheetTrigger
         render={
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
+            type="button"
             aria-label={`Open bag, ${displayTotalItems} item${displayTotalItems === 1 ? "" : "s"}`}
-            className="relative size-11 lg:size-9"
+            className={cn(
+              "kicker flex h-11 items-center px-3 transition-opacity hover:opacity-60 lg:h-auto lg:px-0",
+              className
+            )}
           />
         }
       >
-        <ShoppingBag className="size-5" />
-        {displayTotalItems > 0 && (
-          <span className="absolute top-1.5 right-1.5 flex size-4 items-center justify-center bg-brand text-[10px] leading-none text-brand-foreground">
-            {displayTotalItems > 9 ? "9+" : displayTotalItems}
-          </span>
-        )}
+        Bag{displayTotalItems > 0 ? ` (${displayTotalItems})` : ""}
       </SheetTrigger>
 
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
-        <SheetHeader className="border-b border-border pt-safe">
+        <SheetHeader className="border-b border-border pt-[calc(1rem+env(safe-area-inset-top))]">
           <SheetTitle className="kicker">Bag ({displayTotalItems})</SheetTitle>
         </SheetHeader>
 
@@ -77,7 +74,7 @@ export function CartTrigger() {
           <>
             <ul className="flex-1 overflow-y-auto px-4">
               {displayItems.map((item, i) => (
-                <li key={`${item.productId}-${item.size ?? ""}`}>
+                <li key={item.productId}>
                   {i > 0 && <Separator />}
                   <div className="flex gap-4 py-4">
                     <div className="relative aspect-3/4 w-20 shrink-0 overflow-hidden bg-muted">
@@ -96,18 +93,13 @@ export function CartTrigger() {
                         <p className="text-sm">{item.name}</p>
                         <button
                           type="button"
-                          onClick={() => removeItem(item.productId, item.size)}
+                          onClick={() => removeItem(item.productId)}
                           aria-label={`Remove ${item.name}`}
                           className="flex size-6 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
                         >
                           <X className="size-4" />
                         </button>
                       </div>
-                      {item.size && (
-                        <p className="kicker text-muted-foreground">
-                          Size {item.size}
-                        </p>
-                      )}
                       <p className="text-sm text-muted-foreground">
                         {formatPrice(item.priceCents)}
                       </p>
@@ -115,11 +107,7 @@ export function CartTrigger() {
                         <button
                           type="button"
                           onClick={() =>
-                            updateQuantity(
-                              item.productId,
-                              item.quantity - 1,
-                              item.size
-                            )
+                            updateQuantity(item.productId, item.quantity - 1)
                           }
                           aria-label="Decrease quantity"
                           className="flex size-7 items-center justify-center border border-border"
@@ -132,11 +120,7 @@ export function CartTrigger() {
                         <button
                           type="button"
                           onClick={() =>
-                            updateQuantity(
-                              item.productId,
-                              item.quantity + 1,
-                              item.size
-                            )
+                            updateQuantity(item.productId, item.quantity + 1)
                           }
                           aria-label="Increase quantity"
                           className="flex size-7 items-center justify-center border border-border"
@@ -150,7 +134,7 @@ export function CartTrigger() {
               ))}
             </ul>
 
-            <SheetFooter className="gap-3 border-t border-border pb-safe">
+            <SheetFooter className="gap-3 border-t border-border pb-[calc(1rem+env(safe-area-inset-bottom))]">
               <div className="flex items-center justify-between">
                 <span className="kicker text-muted-foreground">
                   Subtotal

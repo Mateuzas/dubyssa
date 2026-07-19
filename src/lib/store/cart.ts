@@ -8,16 +8,13 @@ export type CartItem = {
   priceCents: number;
   image: string | null;
   quantity: number;
-  // Optional because not every product has size variants; the schema has
-  // no per-size inventory, so this is purely a display/line-item key.
-  size?: string;
 };
 
 type CartState = {
   items: CartItem[];
   addItem: (item: Omit<CartItem, "quantity">) => void;
-  removeItem: (productId: string, size?: string) => void;
-  updateQuantity: (productId: string, quantity: number, size?: string) => void;
+  removeItem: (productId: string) => void;
+  updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   totalCents: () => number;
   totalItems: () => number;
@@ -30,9 +27,8 @@ export const useCartStore = create<CartState>()(
 
       addItem: (item) => {
         set((state) => {
-          // Same product in a different size is a distinct line item.
           const existing = state.items.find(
-            (i) => i.productId === item.productId && i.size === item.size
+            (i) => i.productId === item.productId
           );
           if (existing) {
             return {
@@ -45,24 +41,20 @@ export const useCartStore = create<CartState>()(
         });
       },
 
-      removeItem: (productId, size) => {
+      removeItem: (productId) => {
         set((state) => ({
-          items: state.items.filter(
-            (i) => !(i.productId === productId && i.size === size)
-          ),
+          items: state.items.filter((i) => i.productId !== productId),
         }));
       },
 
-      updateQuantity: (productId, quantity, size) => {
+      updateQuantity: (productId, quantity) => {
         if (quantity <= 0) {
-          get().removeItem(productId, size);
+          get().removeItem(productId);
           return;
         }
         set((state) => ({
           items: state.items.map((i) =>
-            i.productId === productId && i.size === size
-              ? { ...i, quantity }
-              : i
+            i.productId === productId ? { ...i, quantity } : i
           ),
         }));
       },
@@ -79,7 +71,7 @@ export const useCartStore = create<CartState>()(
         get().items.reduce((sum, item) => sum + item.quantity, 0),
     }),
     {
-      name: "eshop-cart",
+      name: "dubyssa-cart",
     }
   )
 );

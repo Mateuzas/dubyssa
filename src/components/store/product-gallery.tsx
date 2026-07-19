@@ -20,68 +20,41 @@ export function ProductGallery({
   }
 
   return (
-    <>
-      {/* Mobile / tablet: horizontal snap-scroll carousel. */}
-      <div className="-mx-4 flex snap-x snap-mandatory gap-1 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:hidden">
-        {images.map((src, i) => (
-          <div
-            key={src}
-            className="relative aspect-3/4 w-[85vw] shrink-0 snap-center overflow-hidden bg-muted sm:w-[60vw]"
-          >
-            <Image
-              src={src}
-              alt={i === 0 ? name : ""}
-              fill
-              sizes="85vw"
-              priority={i === 0}
-              className="object-cover"
-            />
-          </div>
-        ))}
-        {videoUrl && (
-          <div className="relative aspect-3/4 w-[85vw] shrink-0 snap-center overflow-hidden bg-muted sm:w-[60vw]">
-            <video
-              src={videoUrl}
-              poster={images[0]}
-              controls
-              playsInline
-              preload="none"
-              className="absolute inset-0 size-full object-cover"
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Desktop: stacked vertical scroll, one image per viewport row. */}
-      <div className="hidden lg:flex lg:flex-col lg:gap-1">
-        {images.map((src, i) => (
-          <div
-            key={src}
-            className="relative aspect-3/4 w-full overflow-hidden bg-muted"
-          >
-            <Image
-              src={src}
-              alt={i === 0 ? name : ""}
-              fill
-              sizes="50vw"
-              priority={i === 0}
-              className="object-cover"
-            />
-          </div>
-        ))}
-        {videoUrl && (
-          <div className="relative aspect-3/4 w-full overflow-hidden bg-muted">
-            <video
-              src={videoUrl}
-              poster={images[0]}
-              controls
-              playsInline
-              preload="none"
-              className="absolute inset-0 size-full object-cover"
-            />
-          </div>
-        )}
-      </div>
-    </>
+    // Fixed-size viewport onto the photo stack: scrolling (wheel/touch) inside
+    // it steps through photos one by one, while `overscroll-contain` stops
+    // that scroll from ever "spilling over" into a page scroll once the top
+    // or bottom photo is reached — the page stays put, only the photos move.
+    <div
+      className="no-scrollbar flex aspect-3/4 w-full snap-y snap-mandatory flex-col overflow-y-auto overscroll-y-contain bg-muted lg:sticky lg:top-24 lg:aspect-auto lg:h-[calc(100vh-7rem)]"
+      style={{ scrollSnapStop: "always" }}
+    >
+      {images.map((src, i) => (
+        <div
+          key={src}
+          className="relative aspect-3/4 w-full shrink-0 snap-start overflow-hidden lg:aspect-auto lg:h-full"
+        >
+          <Image
+            src={src}
+            alt={i === 0 ? name : ""}
+            fill
+            sizes="(min-width: 1024px) 50vw, 100vw"
+            priority={i === 0}
+            className="object-cover"
+          />
+        </div>
+      ))}
+      {videoUrl && (
+        <div className="relative aspect-3/4 w-full shrink-0 snap-start overflow-hidden lg:aspect-auto lg:h-full">
+          <video
+            src={videoUrl}
+            poster={images[0]}
+            controls
+            playsInline
+            preload="none"
+            className="absolute inset-0 size-full object-cover"
+          />
+        </div>
+      )}
+    </div>
   );
 }

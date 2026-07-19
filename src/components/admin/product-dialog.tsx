@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { Star, Upload, Video, X } from "lucide-react";
+import { GripVertical, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -10,14 +10,21 @@ import {
   updateProduct,
   uploadProductImage,
 } from "@/app/(admin)/admin/products/actions";
-import { createClient } from "@/lib/supabase/client";
 import { productSchema, type ProductInput } from "@/lib/validations/product";
+import { PRODUCT_CATEGORIES } from "@/lib/constants/categories";
 import type { schema } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -30,29 +37,23 @@ type Product = typeof schema.products.$inferSelect;
 
 const MAX_IMAGES = 8;
 
-const VIDEO_BUCKET = "product-videos";
-const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
-const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
-
 type FormState = {
   name: string;
   description: string;
-  priceCents: string;
+  price: string;
   stockQty: string;
   category: string;
   images: string[];
-  videoUrl: string | null;
   isPublished: boolean;
 };
 
 const EMPTY_FORM: FormState = {
   name: "",
   description: "",
-  priceCents: "",
+  price: "",
   stockQty: "1",
   category: "",
   images: [],
-  videoUrl: null,
   isPublished: false,
 };
 
@@ -61,11 +62,10 @@ function toFormState(product?: Product): FormState {
   return {
     name: product.name,
     description: product.description,
-    priceCents: String(product.priceCents),
+    price: (product.priceCents / 100).toFixed(2),
     stockQty: String(product.stockQty),
     category: product.category ?? "",
     images: product.images,
-    videoUrl: product.videoUrl ?? null,
     isPublished: product.isPublished,
   };
 }
@@ -89,30 +89,40 @@ export function ProductDialog({
   >({});
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
 
   function updateField<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  async function handleFileSelected(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  async function handleFilesSelected(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
     event.target.value = "";
-    if (!file) return;
+    if (files.length === 0) return;
+
+    const remainingSlots = MAX_IMAGES - form.images.length;
+    const filesToUpload = files.slice(0, remainingSlots);
+    if (files.length > filesToUpload.length) {
+      toast.error(`Only ${MAX_IMAGES} images allowed per product — extra photos were skipped.`);
+    }
 
     setUploading(true);
-    const formData = new FormData();
-    formData.set("file", file);
-    const result = await uploadProductImage(formData);
-    setUploading(false);
-
-    if ("error" in result) {
-      toast.error(result.error);
-      return;
+    // Uploaded sequentially (rather than in parallel) so the images always
+    // land in the same order they were selected in, regardless of which
+    // upload happens to finish first.
+    for (const file of filesToUpload) {
+      const formData = new FormData();
+      formData.set("file", file);
+      const result = await uploadProductImage(formData);
+      if ("error" in result) {
+        toast.error(result.error);
+        continue;
+      }
+      const url = result.url;
+      setForm((prev) => ({ ...prev, images: [...prev.images, url] }));
     }
-    setForm((prev) => ({ ...prev, images: [...prev.images, result.url] }));
+    setUploading(false);
   }
 
   function removeImage(index: number) {
@@ -122,58 +132,15 @@ export function ProductDialog({
     }));
   }
 
-  function makePrimary(index: number) {
+  function handleDrop(index: number) {
     setForm((prev) => {
+      if (dragIndex === null || dragIndex === index) return prev;
       const images = [...prev.images];
-      const [image] = images.splice(index, 1);
-      images.unshift(image);
+      const [moved] = images.splice(dragIndex, 1);
+      images.splice(index, 0, moved);
       return { ...prev, images };
     });
-  }
-
-  async function handleVideoSelected(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-
-    if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
-      toast.error("Only MP4, WebM, or MOV video files are allowed.");
-      return;
-    }
-    if (file.size > MAX_VIDEO_BYTES) {
-      toast.error("Video must be smaller than 50MB.");
-      return;
-    }
-
-    setUploadingVideo(true);
-
-    // Videos can easily exceed Vercel's 4.5MB serverless function body limit,
-    // so this uploads directly from the browser to Supabase Storage instead
-    // of going through a server action. The `product-videos` bucket has an
-    // RLS policy that only allows inserts from admin users (see
-    // require-admin.ts for the same role check).
-    const supabase = createClient();
-    const ext = file.name.split(".").pop() || "mp4";
-    const path = `${crypto.randomUUID()}.${ext}`;
-    const { error } = await supabase.storage
-      .from(VIDEO_BUCKET)
-      .upload(path, file, { contentType: file.type });
-
-    setUploadingVideo(false);
-
-    if (error) {
-      toast.error("Failed to upload video.");
-      return;
-    }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from(VIDEO_BUCKET).getPublicUrl(path);
-    setForm((prev) => ({ ...prev, videoUrl: publicUrl }));
-  }
-
-  function removeVideo() {
-    setForm((prev) => ({ ...prev, videoUrl: null }));
+    setDragIndex(null);
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -182,11 +149,10 @@ export function ProductDialog({
     const candidate = {
       name: form.name,
       description: form.description,
-      priceCents: Number(form.priceCents),
+      priceCents: Math.round(Number(form.price) * 100),
       stockQty: Number(form.stockQty),
       category: form.category || null,
       images: form.images,
-      videoUrl: form.videoUrl,
       isPublished: form.isPublished,
     };
 
@@ -256,15 +222,22 @@ export function ProductDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="priceCents">Price (cents)</Label>
-              <Input
-                id="priceCents"
-                type="number"
-                min={1}
-                value={form.priceCents}
-                onChange={(e) => updateField("priceCents", e.target.value)}
-                aria-invalid={!!errors.priceCents}
-              />
+              <Label htmlFor="price">Price</Label>
+              <div className="relative">
+                <span className="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-base text-muted-foreground md:text-sm">
+                  €
+                </span>
+                <Input
+                  id="price"
+                  type="number"
+                  min={0.01}
+                  step={0.01}
+                  value={form.price}
+                  onChange={(e) => updateField("price", e.target.value)}
+                  className="pl-6"
+                  aria-invalid={!!errors.priceCents}
+                />
+              </div>
               {errors.priceCents && (
                 <p className="text-xs text-destructive">{errors.priceCents}</p>
               )}
@@ -287,41 +260,59 @@ export function ProductDialog({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="category">Category</Label>
-            <Input
-              id="category"
-              value={form.category}
-              onChange={(e) => updateField("category", e.target.value)}
-            />
+            <Select
+              value={form.category || null}
+              onValueChange={(value) =>
+                updateField("category", (value as string) ?? "")
+              }
+            >
+              <SelectTrigger id="category" className="w-full">
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                {PRODUCT_CATEGORIES.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label>Images</Label>
+            <p className="text-xs text-muted-foreground">
+              Drag to reorder — the first photo is the primary one shown in
+              listings.
+            </p>
             <div className="grid grid-cols-4 gap-2">
               {form.images.map((src, index) => (
                 <div
                   key={src}
-                  className="group relative aspect-square overflow-hidden rounded-md border"
+                  draggable
+                  onDragStart={() => setDragIndex(index)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleDrop(index)}
+                  onDragEnd={() => setDragIndex(null)}
+                  className={cn(
+                    "group relative aspect-square cursor-grab overflow-hidden rounded-md border active:cursor-grabbing",
+                    dragIndex === index && "opacity-40"
+                  )}
                 >
                   <Image
                     src={src}
                     alt=""
                     fill
                     sizes="80px"
-                    className="object-cover"
+                    className="pointer-events-none object-cover"
                   />
-                  {index === 0 ? (
+                  <div className="pointer-events-none absolute top-1 left-1 rounded-sm bg-background/80 p-0.5">
+                    <GripVertical className="size-3" />
+                  </div>
+                  {index === 0 && (
                     <span className="absolute bottom-1 left-1 rounded-sm bg-background/80 px-1 text-[10px] leading-tight">
                       Primary
                     </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => makePrimary(index)}
-                      aria-label="Make primary image"
-                      className="absolute bottom-1 left-1 hidden rounded-sm bg-background/80 p-0.5 group-hover:block"
-                    >
-                      <Star className="size-3" />
-                    </button>
                   )}
                   <button
                     type="button"
@@ -353,56 +344,14 @@ export function ProductDialog({
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              onChange={handleFileSelected}
-              className="hidden"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label>Video</Label>
-            {form.videoUrl ? (
-              <div className="group relative aspect-video overflow-hidden rounded-md border">
-                <video
-                  src={form.videoUrl}
-                  controls
-                  className="size-full object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={removeVideo}
-                  aria-label="Remove video"
-                  className="absolute top-1 right-1 rounded-full bg-background/80 p-0.5"
-                >
-                  <X className="size-3" />
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => videoInputRef.current?.click()}
-                disabled={uploadingVideo}
-                className="flex aspect-video w-full flex-col items-center justify-center gap-1 rounded-md border border-dashed text-muted-foreground hover:text-foreground disabled:opacity-50"
-              >
-                <Video className="size-4" />
-                <span className="text-[10px]">
-                  {uploadingVideo ? "Uploading…" : "Add video (MP4/WebM/MOV, max 50MB)"}
-                </span>
-              </button>
-            )}
-            <input
-              ref={videoInputRef}
-              type="file"
-              accept="video/mp4,video/webm,video/quicktime"
-              onChange={handleVideoSelected}
+              multiple
+              onChange={handleFilesSelected}
               className="hidden"
             />
           </div>
 
           <DialogFooter>
-            <Button
-              type="submit"
-              disabled={submitting || uploading || uploadingVideo}
-            >
+            <Button type="submit" disabled={submitting || uploading}>
               {submitting ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>

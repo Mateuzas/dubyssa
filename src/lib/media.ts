@@ -18,7 +18,15 @@
 const SITE_MEDIA_BUCKET = "site-media";
 
 export function siteMedia(path: string): string {
-  const cleanPath = path.replace(/^\/+/, "");
+  // Encode each path segment individually (not the slashes themselves) —
+  // several filenames here have spaces/parentheses in them (e.g. AI-export
+  // filenames), which must be percent-encoded for the Supabase Storage URL
+  // to resolve correctly in production.
+  const cleanPath = path
+    .replace(/^\/+/, "")
+    .split("/")
+    .map(encodeURIComponent)
+    .join("/");
 
   if (process.env.NODE_ENV === "development") {
     return `/dev-media/${cleanPath}`;
