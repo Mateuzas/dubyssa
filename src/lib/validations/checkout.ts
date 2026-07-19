@@ -27,5 +27,3 @@ export const checkoutSchema = z.object({
     )
     .min(1, "Cart must have at least one item"),
 });
-
-export type CheckoutInput = z.infer<typeof checkoutSchema>;
